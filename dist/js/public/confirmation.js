@@ -38,10 +38,6 @@ function fill() {
   }
 }
 
-$('[data-save-pdf]')?.addEventListener('click', () => {
-  window.print();
-});
-
 loadPublicSettings()
   .then(({ settings }) => {
     applyBranding(settings);
