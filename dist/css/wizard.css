@@ -99,6 +99,12 @@ button.wizard-step__body:focus-visible {
   color: var(--color-success);
 }
 
+/* A step behind the current one whose required answers are not finished yet. */
+.wizard-step[data-state='incomplete'] .wizard-step__body {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
 .wizard-step__index {
   width: 1.5rem;
   height: 1.5rem;
@@ -121,6 +127,12 @@ button.wizard-step__body:focus-visible {
   background: var(--color-success);
   color: #fff;
   border-color: var(--color-success);
+}
+
+.wizard-step[data-state='incomplete'] .wizard-step__index {
+  background: var(--color-warning);
+  color: #fff;
+  border-color: var(--color-warning);
 }
 
 /* Step intro */

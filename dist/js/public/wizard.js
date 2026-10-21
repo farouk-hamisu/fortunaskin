@@ -15,7 +15,13 @@ import {
 import { applyBranding, pageTitle } from './branding.js';
 import { applyShopLinks, resolveShopUrl, resolveShopLabel } from './shop.js';
 import { renderFieldStep, validateField, validateHandlesList } from './step-fields.js';
-import { createProductGrid, createEmptyProduct, ACCEPTED_IMAGE_TYPES, hasReadyScreenshot } from './product-grid.js';
+import {
+  createProductGrid,
+  createEmptyProduct,
+  validateProductList,
+  ACCEPTED_IMAGE_TYPES,
+  hasReadyScreenshot,
+} from './product-grid.js';
 import { openTermsViewer } from './terms-viewer.js';
 import { renderReview } from './review.js';
 import { showLoader, hideLoader } from './page-loader.js';
@@ -84,39 +90,62 @@ function persistNow() {
 
 /* --------------------------------------------------------------- step chrome */
 
+// True when every required input of a step is filled in and valid. Drives the
+// stepper's completion markers so they always reflect real progress — including
+// after a direct jump that skipped a step.
+function stepIsComplete(step) {
+  if (step === 1 || step === 2) return validateStepFields(step).length === 0;
+  if (step === 3) return validateProductList(state.products, state.settings || {}).length === 0;
+  if (step === 4) return consentGateMet();
+  return false; // the review step is only finished once submitted
+}
+
+// Handles every stepper click: backward jumps are always allowed (answers live
+// in wizard state + the draft, so nothing is lost), forward jumps require the
+// current step to be valid first so required information can never be skipped.
+function navigateToStep(target) {
+  if (target === state.step) return;
+  if (target < state.step) {
+    goToStep(target);
+    return;
+  }
+  if (!canLeaveStep(state.step)) return;
+  goToStep(target);
+}
+
 function renderStepper(activeStep) {
   const list = $('[data-stepper]');
   clearNode(list);
   for (let i = 1; i <= STEP_COUNT; i += 1) {
-    const stateName = i === activeStep ? 'current' : i < activeStep ? 'done' : 'todo';
+    const done = i < activeStep && stepIsComplete(i);
+    const incomplete = i < activeStep && !done;
+    const stateName = i === activeStep ? 'current' : done ? 'done' : incomplete ? 'incomplete' : 'todo';
     const item = el('li', { class: 'wizard-step', 'data-state': stateName });
     const index = el('span', { class: 'wizard-step__index', 'aria-hidden': 'true' }, [
-      i < activeStep ? document.createTextNode('✓') : document.createTextNode(String(i)),
+      done ? document.createTextNode('✓') : document.createTextNode(String(i)),
     ]);
     const label = el('span', { class: 'wizard-step__label', text: STEP_TITLES[i - 1] });
 
-    if (i < activeStep) {
-      // Completed steps are clickable: jump back to review or correct answers.
+    if (i === activeStep) {
+      item.append(el('div', { class: 'wizard-step__body' }, [index, label]));
+    } else {
+      // Completed and upcoming steps are both clickable: go back to review or
+      // correct answers, or jump forward once the current step is complete.
+      const forward = i > activeStep;
       item.append(
         el(
           'button',
           {
             type: 'button',
             class: 'wizard-step__body',
-            'aria-label': `Go back to step ${i}: ${STEP_TITLES[i - 1]}`,
-            onClick: () => {
-              if (i >= state.step) return;
-              // Validate the step being left (same rule as the Back button) so
-              // in-progress answers are never discarded silently.
-              if (!canLeaveStep(state.step)) return;
-              goToStep(i);
-            },
+            'aria-label': forward
+              ? `Go to step ${i}: ${STEP_TITLES[i - 1]}`
+              : `Go back to step ${i}: ${STEP_TITLES[i - 1]}${incomplete ? ' (not completed yet)' : ''}`,
+            onClick: () => navigateToStep(i),
           },
           [index, label],
         ),
       );
-    } else {
-      item.append(el('div', { class: 'wizard-step__body' }, [index, label]));
     }
 
     if (i === activeStep) item.setAttribute('aria-current', 'step');
@@ -587,8 +616,8 @@ async function submit() {
   if (productGrid) {
     problems.push(...productGrid.validate());
   } else {
-    // product grid not yet rendered (deep-linked to review) — validate raw state
-    const { validateProductList } = await import('./product-grid.js');
+    // Product grid not yet rendered (deep link straight to review) — the same
+    // rules run against the raw wizard state.
     problems.push(...validateProductList(state.products, state.settings || {}));
   }
   if (!consentGateMet()) problems.push('Please confirm your consent to the Terms & Conditions.');
