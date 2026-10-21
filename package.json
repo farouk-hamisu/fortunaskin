@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Fortuna Skin creator partnership application platform (HTML/CSS/Vanilla JS + Supabase)",
+  "description": "Furtuna Skin creator partnership application platform (HTML/CSS/Vanilla JS + Supabase)",
   "scripts": {
     "env": "node scripts/generate-env.js",
     "serve": "node scripts/serve.js",
